@@ -1,0 +1,12 @@
+[features]
+seeds = false
+skip-lint = false
+[programs.devnet]
+mallrave = "BEtio1iiUCWv1k3L3fpM6dEKafEMAdzyznPFupXYhdD6"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "devnet"
+wallet = "/home/mateo/.config/solana/id.json"
