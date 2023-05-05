@@ -8,7 +8,7 @@ use crate::errors::ErrorCode;
 pub fn delete_sell(
     ctx: Context<DeleteSell>
 ) -> Result<()> {
-    // Check that the user key matches the offer's pubkey key
+    // Check that the user key matches the offer's pubkey key 
     require!(ctx.accounts.user.key() == ctx.accounts.offer.pubkey.key(), ErrorCode::PubkeyError);
     // Calculate the amount of lamports to transfer
     let lamport: u64 = 9333360 - 890880;
