@@ -1,48 +1,26 @@
-use anchor_lang::{
-    prelude::*,
-    solana_program::pubkey::Pubkey,
-};
-use crate::state::accounts::*;
+use crate::{state::accounts::*, utils::constants::MAIN_ACCOUNT};
+use anchor_lang::{prelude::*, solana_program::pubkey::Pubkey};
 
-pub fn init_accounts(
-    ctx: Context<InitAccounts>
-) -> Result<()> {
-    let iter: &mut Account<IterData> = &mut ctx.accounts.iter;
-    let (_pda, iter_bump): (Pubkey, u8) = Pubkey::find_program_address(&[
-        b"iter"
-        ], ctx.program_id);
-    iter.bump_original = iter_bump;
-    iter.iter = 0;
-
-    let sell: &mut Account<AccountData> = &mut ctx.accounts.sell;
-    let (_pda, bump): (Pubkey, u8) = Pubkey::find_program_address(&[
-        b"sell"
-        ], ctx.program_id);
-    sell.bump_original = bump;
-    sell.transactions = 0;
-    sell.average_exchange_time = 0;
-    sell.positioning = [].to_vec();
-
+pub fn init_global_account_(ctx: Context<InitGlobalAccount>) -> Result<()> {
+    let program_id: &Pubkey = ctx.program_id;
+    let main_account: &mut Account<AccountData> = &mut ctx.accounts.main_account;
+    let (_pda, bump): (Pubkey, u8) = Pubkey::find_program_address(&[MAIN_ACCOUNT], program_id);
+    main_account.set_bump_original(bump);
+    main_account.init_transactions();
+    main_account.init_av_ex_time();
+    main_account.init_positioning();
     Ok(())
 }
 
 #[derive(Accounts)]
-pub struct InitAccounts<'info> {
+pub struct InitGlobalAccount<'info> {
     #[account(
         init,
-        seeds = [b"iter"],
+        seeds = [MAIN_ACCOUNT],
         bump,
         payer = user,
-        space = IterData::SIZE + 8)]
-    pub iter: Account<'info, IterData>,
-
-    #[account(
-        init,
-        seeds = [b"sell"],
-        bump,
-        payer = user,
-        space = AccountData::SIZE + 8)]
-    pub sell: Account<'info, AccountData>,
+        space = AccountData::SIZE)]
+    pub main_account: Account<'info, AccountData>,
     /// CHECK: This is not dangerous
     #[account(mut)]
     pub user: Signer<'info>,

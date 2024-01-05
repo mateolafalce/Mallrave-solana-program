@@ -1,48 +1,45 @@
+use crate::{state::accounts::*, utils::constants::MAIN_ACCOUNT};
 use anchor_lang::{
     prelude::*,
-    solana_program::system_instruction,
-    solana_program::pubkey::Pubkey,
-}; 
-use crate::state::accounts::*;
-use crate::errors::ErrorCode;
+    solana_program::{program::invoke, pubkey::Pubkey, system_instruction::transfer},
+};
 
-pub fn exchange(
-        ctx: Context<Exchange>,
-        supply: u64
-    ) -> Result<()> {
-        require!(ctx.accounts.seller.key() == ctx.accounts.offer.pubkey.key(), ErrorCode::PubkeyError);
-        require!(supply <= ctx.accounts.offer.supply, ErrorCode::OfferError);
-        require!(ctx.accounts.offer.supply > 0, ErrorCode::SupplyError);
-        let lamports: u64 = ctx.accounts.offer.price * supply;
-        anchor_lang::solana_program::program::invoke(
-            &system_instruction::transfer(
-                &ctx.accounts.buyer.key(), 
-                &ctx.accounts.offer.pubkey.key(), 
-                lamports
-            ),
-            &[
-                ctx.accounts.buyer.to_account_info(), 
-                ctx.accounts.offer.to_account_info()
-                .clone()
-            ],
-        ).expect("Error");
-        let main_account: &mut Account<MainAccount> = &mut ctx.accounts.main_account;
-        main_account.transactions += 1;
-        let offer: &mut Account<Sell> = &mut ctx.accounts.offer;
-        offer.supply -= supply;
-        if offer.supply == 0 {
-            main_account.active_offers -= 1;
-            offer.active = false
-        }
-        Ok(())
+pub fn exchange_(ctx: Context<Exchange>, supply: u32) -> Result<()> {
+    let seller: Pubkey = ctx.accounts.seller.key();
+    let offer: Pubkey = ctx.accounts.offer.authority.key();
+    let buyer: Pubkey = ctx.accounts.buyer.key();
+    let current_supply: u32 = ctx.accounts.offer.supply;
+    // validations
+    require_keys_eq!(seller, offer);
+    require_gte!(current_supply, supply);
+    require_gte!(current_supply, 0);
+    // make the tx
+    let lamports: u64 = ctx.accounts.offer.price * supply as u64;
+    invoke(
+        &transfer(&buyer, &offer, lamports),
+        &[
+            ctx.accounts.buyer.to_account_info(),
+            ctx.accounts.offer.to_account_info().clone(),
+        ],
+    )
+    .expect("Error");
+    // update state
+    let main_account: &mut Account<AccountData> = &mut ctx.accounts.main_account;
+    let product: &mut Account<Product> = &mut ctx.accounts.offer;
+    main_account.add_transactions();
+    //product.supply -= supply;
+    if product.supply == 0 {
+        //main_account.active_offers -= 1;
     }
+    Ok(())
+}
 
 #[derive(Accounts)]
 pub struct Exchange<'info> {
-    #[account(mut, seeds = [b"Main Account"], bump = main_account.bump_original)]
-    pub main_account: Account<'info, MainAccount>,
-    #[account(mut, seeds = [offer.seed.to_be_bytes().as_ref()], bump = offer.bump_original)]
-    pub offer: Account<'info, Sell>,
+    #[account(mut, seeds = [MAIN_ACCOUNT], bump = main_account.bump_original)]
+    pub main_account: Account<'info, AccountData>,
+    #[account(mut, seeds = [&seller.key().to_bytes()], bump = offer.bump_original)]
+    pub offer: Account<'info, Product>,
     /// CHECK: This is not dangerous
     #[account(mut, signer)]
     pub buyer: AccountInfo<'info>,
